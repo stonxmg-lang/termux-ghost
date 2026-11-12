@@ -6,10 +6,7 @@ Fish-style history autosuggestions for **Bash on Termux**, like `zsh-autosuggest
 
 As you type, the most recent matching command from your history appears in dim text after the cursor. Press `→` to accept it.
 
-```
-$ git cl█one https://github.com/stonxmg-lang/termux-ghost
-       ^ you typed this    ^ suggestion, shown dimmed
-```
+![termux-ghost demo: typing shows a dimmed suggestion from history, → accepts it, Alt-F accepts one word](docs/demo.gif)
 
 ## Why
 
