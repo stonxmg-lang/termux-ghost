@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        arch: [x86_64, aarch64, i686, arm]
     steps:
       - uses: actions/checkout@v4
 
@@ -57,9 +57,14 @@ jobs:
             debs/*.deb
             /tmp/termux-ghost/build.sh
 
-      - name: Set up QEMU for aarch64
-        if: matrix.arch == 'aarch64'
-        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
+      - name: Set up QEMU for ARM
+        if: matrix.arch == 'aarch64' || matrix.arch == 'arm'
+        run: docker run --rm --privileged aptman/qus -s -- -p ${{ matrix.arch }}
+
+      # 32-bit Termux breaks on PIDs above 65535 (termux-docker#40).
+      - name: Limit PIDs for 32-bit
+        if: matrix.arch == 'i686' || matrix.arch == 'arm'
+        run: sudo sysctl -w kernel.pid_max=65536
 
       - name: Install the package in Termux and run the tests against it
         run: |
