@@ -20,6 +20,8 @@
  * own output and the cursor is restored with relative moves, which stay
  * correct even if drawing scrolled the screen.
  */
+/* glibc hides wcwidth() without this; bionic (Termux) declares it anyway. */
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <fnmatch.h>

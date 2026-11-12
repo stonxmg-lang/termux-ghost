@@ -2,6 +2,8 @@
 
 **English** | [العربية](README.ar.md)
 
+[![CI](https://github.com/stonxmg-lang/termux-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/stonxmg-lang/termux-ghost/actions/workflows/ci.yml)
+
 Fish-style history autosuggestions for **Bash on Termux**, like `zsh-autosuggestions`.
 
 As you type, the most recent matching command from your history appears in dim text after the cursor. Press `→` to accept it.
@@ -89,6 +91,8 @@ tests/run.sh
 ```
 
 The tests drive a real terminal through `tmux` with a throwaway history file, so your own history is not touched. They need `tmux` (`pkg install tmux`).
+
+GitHub Actions runs them on every push inside real Termux ([termux-docker](https://github.com/termux/termux-docker)), on x86_64 and on aarch64 through QEMU, together with unit tests under AddressSanitizer (`tests/unit.c`). It also runs weekly, so a Termux update that breaks something shows up quickly.
 
 ## License
 

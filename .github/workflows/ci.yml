@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so a Termux update that breaks the build shows up even
+    # when nothing here changed.
+    - cron: "17 3 * * 1"
+
+jobs:
+  unit:
+    name: Unit tests (Linux, sanitizers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -yq libreadline-dev
+      - name: Build library with warnings as errors
+        run: make PREFIX=/usr CFLAGS="-O2 -Wall -Wextra -Werror -fPIC"
+      - name: Unit tests under ASan and UBSan
+        run: |
+          gcc -std=gnu11 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-sanitize-recover=all \
+            tests/unit.c -lreadline -o unit
+          ./unit
+
+  termux:
+    name: Termux ${{ matrix.arch }} (install + end-to-end)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU for aarch64
+        if: matrix.arch == 'aarch64'
+        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
+      - name: Install, test, uninstall inside Termux
+        run: |
+          docker run --rm --privileged -v "$PWD:/src:ro" \
+            termux/termux-docker:${{ matrix.arch }} bash -c '
+              set -euo pipefail
+              apt-get update -q
+              apt-get -yq -o Dpkg::Options::=--force-confnew upgrade
+              apt-get -yq install tmux
+              cp -r /src ~/termux-ghost
+              cd ~/termux-ghost
+              echo "::group::bash and readline versions"
+              bash --version | head -1
+              dpkg -s readline | grep ^Version
+              echo "::endgroup::"
+              ./install.sh
+              grep -q termux-ghost ~/.bashrc
+              tests/run.sh
+              ./install.sh --uninstall
+              if grep -q termux-ghost ~/.bashrc; then echo "uninstall left .bashrc line"; exit 1; fi
+              test ! -e ~/.local/lib/termux-ghost
+            '

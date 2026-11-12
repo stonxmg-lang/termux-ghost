@@ -2,6 +2,8 @@
 
 [English](README.md) | **العربية**
 
+[![CI](https://github.com/stonxmg-lang/termux-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/stonxmg-lang/termux-ghost/actions/workflows/ci.yml)
+
 اقتراحات تلقائية من سجل الأوامر لصدفة Bash على ترمكس، تعمل مثل `zsh-autosuggestions`.
 مكتوبة بلغة C وتعمل داخل Bash مباشرة عبر مكتبة readline، بلا عمليات خارجية عند كل حرف.
 
@@ -73,6 +75,8 @@ ghost ignore '*mysql -p*' '*aws_secret*'
 تعمل في طرفية حقيقية عبر tmux، بسجل مؤقت لا يمس سجلك.
 
 تحتاج `tmux`.
+
+تشغّلها GitHub Actions مع كل push داخل ترمكس حقيقي ([termux-docker](https://github.com/termux/termux-docker))، على x86_64 وعلى aarch64 عبر QEMU، ومعها اختبارات وحدة تحت AddressSanitizer (`tests/unit.c`). وتعمل أيضًا كل أسبوع، فإذا كسر تحديث لترمكس شيئًا يظهر ذلك بسرعة.
 
 ## الرخصة
 
