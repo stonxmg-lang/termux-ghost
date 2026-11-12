@@ -17,7 +17,7 @@ termux_step_create_debscripts() {
 	cat <<-EOF > ./postinst
 	#!$TERMUX_PREFIX/bin/sh
 	echo
-	echo "termux-ghost: to turn it on, add this line to ~/.bashrc and open a new session:"
+	echo "bash-ghost: to turn it on, add this line to ~/.bashrc and open a new session:"
 	echo '  [[ \$- == *i* ]] && enable -f "\$PREFIX/lib/bash/ghost" ghost 2>/dev/null'
 	echo
 	EOF

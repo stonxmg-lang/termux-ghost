@@ -1,6 +1,6 @@
 name: Package
 
-# Builds the Termux package from packaging/tur/termux-ghost/build.sh with the
+# Builds the Termux package from packaging/tur/bash-ghost/build.sh with the
 # official termux-packages build system, installs it in real Termux and runs
 # the full test suite against the installed library.
 # On a v* tag it uses the tag's tarball and prints the SHA256 for build.sh.
@@ -32,8 +32,8 @@ jobs:
             url="$repo/archive/$GITHUB_SHA.tar.gz"
           fi
           sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
-          cp -r packaging/tur/termux-ghost /tmp/termux-ghost
-          sed -i "s|^TERMUX_PKG_SRCURL=.*|TERMUX_PKG_SRCURL=$url|; s|^TERMUX_PKG_SHA256=.*|TERMUX_PKG_SHA256=$sha|" /tmp/termux-ghost/build.sh
+          cp -r packaging/tur/bash-ghost /tmp/bash-ghost
+          sed -i "s|^TERMUX_PKG_SRCURL=.*|TERMUX_PKG_SRCURL=$url|; s|^TERMUX_PKG_SHA256=.*|TERMUX_PKG_SHA256=$sha|" /tmp/bash-ghost/build.sh
           echo "### Source" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$url\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -43,19 +43,19 @@ jobs:
       - name: Build with termux-packages
         run: |
           git clone -q --depth 1 https://github.com/termux/termux-packages ~/termux-packages
-          cp -r /tmp/termux-ghost ~/termux-packages/packages/termux-ghost
+          cp -r /tmp/bash-ghost ~/termux-packages/packages/bash-ghost
           cd ~/termux-packages
-          ./scripts/run-docker.sh ./build-package.sh -I -a ${{ matrix.arch }} termux-ghost
+          ./scripts/run-docker.sh ./build-package.sh -I -a ${{ matrix.arch }} bash-ghost
           ls -la output
           mkdir -p "$GITHUB_WORKSPACE/debs"
-          cp output/termux-ghost_*.deb "$GITHUB_WORKSPACE/debs/"
+          cp output/bash-ghost_*.deb "$GITHUB_WORKSPACE/debs/"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: termux-ghost-${{ matrix.arch }}
+          name: bash-ghost-${{ matrix.arch }}
           path: |
             debs/*.deb
-            /tmp/termux-ghost/build.sh
+            /tmp/bash-ghost/build.sh
 
       - name: Set up QEMU for ARM
         if: matrix.arch == 'aarch64' || matrix.arch == 'arm'
@@ -74,14 +74,14 @@ jobs:
               apt-get update -q
               apt-get -yq -o Dpkg::Options::=--force-confnew upgrade
               apt-get -yq install tmux
-              cp /src/debs/termux-ghost_*.deb ~/
-              apt-get -yq install ~/termux-ghost_*.deb
-              dpkg -L termux-ghost
+              cp /src/debs/bash-ghost_*.deb ~/
+              apt-get -yq install ~/bash-ghost_*.deb
+              dpkg -L bash-ghost
               lib=$PREFIX/lib/bash/ghost
               test -f "$lib"
               bash -c "enable -f $lib ghost && ghost status"
               cp -r /src ~/termux-ghost
               GHOST_SO=$lib ~/termux-ghost/tests/run.sh
-              apt-get -yq remove termux-ghost
+              apt-get -yq remove bash-ghost
               test ! -e "$lib"
             '
