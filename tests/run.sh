@@ -17,6 +17,8 @@ git commit -m first-message
 echo hello-world
 echo "مرحبا بالعالم"
 echo 日本語テキスト
+export GH_USER=stonx
+export GH_TOKEN=ghp_secret-marker
 curl https://example.com/a/very/long/path/that/keeps/going/and/going/until/it/wraps/around/the/narrow/phone/screen/more/than/one/row
 H
 touch "$W/alpha_file" "$W/alpha_other"
@@ -133,6 +135,25 @@ lit 'echo 日'
 curis "wide chars keep cursor" "9,0"
 keys Right
 has "wide accepted" 'echo 日本語テキスト'
+keys C-u C-l
+
+# Secrets: lines matching an ignore pattern are skipped, older safe ones shown.
+lit 'export GH_'
+has "ignored line skipped, older one shown" 'export GH_USER=stonx'
+hasnt "token line never shown" 'secret-marker'
+keys C-u
+lit "ghost ignore '*GH_USER*'"; keys Enter; keys C-l
+lit 'export GH_'
+hasnt "added pattern hides line" 'GH_USER=stonx'
+keys C-u
+lit 'ghost ignore --clear'; keys Enter; keys C-l
+lit 'export GH_'
+has "clear shows everything" 'secret-marker'
+keys C-u
+lit 'ghost ignore --reset'; keys Enter; keys C-l
+lit 'export GH_'
+has "reset restores defaults" 'export GH_USER=stonx'
+hasnt "reset hides token again" 'secret-marker'
 keys C-u C-l
 
 lit 'ghost off'; keys Enter; keys C-l

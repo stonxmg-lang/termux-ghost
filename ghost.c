@@ -20,7 +20,9 @@
  * own output and the cursor is restored with relative moves, which stay
  * correct even if drawing scrolled the screen.
  */
+#include <ctype.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,6 +99,95 @@ static void cache_clear(void)
   cached_prefix_len = 0;
 }
 
+/* ---- ignore patterns ---- */
+
+/* History lines matching any of these globs are never suggested, so a command
+   that once carried a password or token is not shown again on screen.
+   Matching is case-insensitive: patterns and lines are compared in ASCII
+   lowercase, which leaves UTF-8 bytes untouched. */
+#define IGNORE_MAX 64
+#define PATTERN_MAX 256
+static const char *const default_ignores[] = {
+  "*password*", "*passwd*", "*secret*", "*token*", "*api_key*", "*apikey*",
+  "*authorization:*", "*ghp_*", "*github_pat_*", NULL
+};
+static char *ignores[IGNORE_MAX];
+static int n_ignores;
+
+static char *lower_dup(const char *s)
+{
+  char *d = strdup(s);
+  if (d)
+    for (char *p = d; *p; p++)
+      if ((unsigned char)*p < 0x80) *p = (char)tolower((unsigned char)*p);
+  return d;
+}
+
+static void ignores_changed(void)
+{
+  cache_clear();
+  cached_history_len = -1;
+}
+
+static void ignore_clear(void)
+{
+  for (int i = 0; i < n_ignores; i++) free(ignores[i]);
+  n_ignores = 0;
+  ignores_changed();
+}
+
+static int ignore_find(const char *lower)
+{
+  for (int i = 0; i < n_ignores; i++)
+    if (!strcmp(ignores[i], lower)) return i;
+  return -1;
+}
+
+/* 0 added or already present, 1 list full, 2 too long or out of memory. */
+static int ignore_add(const char *pattern)
+{
+  if (strlen(pattern) >= PATTERN_MAX) return 2;
+  char *p = lower_dup(pattern);
+  if (!p) return 2;
+  if (ignore_find(p) >= 0) { free(p); return 0; }
+  if (n_ignores >= IGNORE_MAX) { free(p); return 1; }
+  ignores[n_ignores++] = p;
+  ignores_changed();
+  return 0;
+}
+
+static int ignore_remove(const char *pattern)
+{
+  char *p = lower_dup(pattern);
+  if (!p) return 0;
+  int i = ignore_find(p);
+  free(p);
+  if (i < 0) return 0;
+  free(ignores[i]);
+  memmove(&ignores[i], &ignores[i + 1], (size_t)(n_ignores - i - 1) * sizeof *ignores);
+  n_ignores--;
+  ignores_changed();
+  return 1;
+}
+
+static void ignore_reset(void)
+{
+  ignore_clear();
+  for (int i = 0; default_ignores[i]; i++) ignore_add(default_ignores[i]);
+}
+
+static int is_ignored(const char *line)
+{
+  if (n_ignores == 0) return 0;
+  char *l = lower_dup(line);
+  if (!l) return 1;   /* can't check it, so don't show it */
+  int hit = 0;
+  for (int i = 0; i < n_ignores && !hit; i++)
+    hit = fnmatch(ignores[i], l, 0) == 0;
+  free(l);
+  return hit;
+}
+
 static int single_line_printable(const char *s)
 {
   for (; *s; s++)
@@ -119,7 +210,7 @@ static const char *find_suggestion(const char *line, size_t len)
   if (!list) return NULL;
   for (int i = history_length - 1; i >= 0; i--) {
     const char *h = list[i]->line;
-    if (strncmp(h, line, len) == 0 && h[len] && single_line_printable(h)) {
+    if (strncmp(h, line, len) == 0 && h[len] && single_line_printable(h) && !is_ignored(h)) {
       cached = strdup(h);
       cached_prefix_len = len;
       return cached;
@@ -416,6 +507,39 @@ static int ghost_builtin(void *list)
     cache_clear();
   } else if (!strcmp(cmd, "status")) {
     printf("ghost: %s\n", enabled ? "on" : "off");
+  } else if (!strcmp(cmd, "ignore")) {
+    struct wl *a = l->next;
+    if (!a) {
+      for (int i = 0; i < n_ignores; i++) printf("%s\n", ignores[i]);
+    } else if (!strcmp(a->word->word, "--clear") && !a->next) {
+      ignore_clear();
+    } else if (!strcmp(a->word->word, "--reset") && !a->next) {
+      ignore_reset();
+    } else {
+      for (; a; a = a->next) {
+        int r = ignore_add(a->word->word);
+        if (r == 1) {
+          fprintf(stderr, "ghost: ignore list is full (%d patterns)\n", IGNORE_MAX);
+          return EXECUTION_FAILURE;
+        }
+        if (r == 2) {
+          fprintf(stderr, "ghost: pattern too long (max %d bytes)\n", PATTERN_MAX - 1);
+          return EXECUTION_FAILURE;
+        }
+      }
+    }
+  } else if (!strcmp(cmd, "unignore")) {
+    if (!l->next) {
+      fprintf(stderr, "ghost: unignore takes the pattern to remove\n");
+      return EX_USAGE;
+    }
+    int status = EXECUTION_SUCCESS;
+    for (struct wl *a = l->next; a; a = a->next)
+      if (!ignore_remove(a->word->word)) {
+        fprintf(stderr, "ghost: not in the ignore list: %s\n", a->word->word);
+        status = EXECUTION_FAILURE;
+      }
+    return status;
   } else if (!strcmp(cmd, "color")) {
     /* e.g. `ghost color 90` or `ghost color 38;5;244` */
     const char *v = l->next ? l->next->word->word : NULL;
@@ -426,7 +550,7 @@ static int ghost_builtin(void *list)
     snprintf(style_buf, sizeof style_buf, "\033[%sm", v);
     style = style_buf;
   } else {
-    fprintf(stderr, "usage: ghost [on|off|status|color SGR]\n");
+    fprintf(stderr, "usage: ghost [on|off|status|color SGR|ignore [PATTERN...|--clear|--reset]|unignore PATTERN...]\n");
     return EX_USAGE;
   }
   return EXECUTION_SUCCESS;
@@ -435,6 +559,7 @@ static int ghost_builtin(void *list)
 int ghost_builtin_load(char *name)
 {
   (void)name;
+  if (n_ignores == 0) ignore_reset();
   install();
   return 1;
 }
@@ -456,7 +581,7 @@ void ghost_builtin_unload(char *name)
       rebind(maps[i], ghost_forward_word, rl_forward_word);
     }
   }
-  cache_clear();
+  ignore_clear();
 }
 
 static char *const ghost_doc[] = {
@@ -465,10 +590,15 @@ static char *const ghost_doc[] = {
   "ghost on|off      enable or disable suggestions",
   "ghost status      show the current state",
   "ghost color SGR   set the colour, e.g. 90 or 38;5;244",
+  "ghost ignore      list patterns that are never suggested",
+  "ghost ignore PAT  never suggest history lines matching PAT, e.g. '*token*'",
+  "                  (quote it, or bash may expand it to file names)",
+  "ghost ignore --clear | --reset   remove all patterns | restore defaults",
+  "ghost unignore PAT               remove one pattern",
   NULL
 };
 
 struct builtin ghost_struct = {
   "ghost", ghost_builtin, BUILTIN_ENABLED, ghost_doc,
-  "ghost [on|off|status|color SGR]", 0
+  "ghost [on|off|status|color SGR|ignore [PATTERN...]|unignore PATTERN...]", 0
 };

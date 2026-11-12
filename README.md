@@ -46,10 +46,35 @@ If there is no suggestion, these keys work as usual. Keys you have rebound to th
 | `ghost on` / `ghost off` | Turn suggestions on or off |
 | `ghost status` | Show whether it is on |
 | `ghost color 38;5;244` | Change the suggestion colour ([SGR codes](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters), default `90`) |
+| `ghost ignore` | List the ignore patterns |
+| `ghost ignore '*pattern*'` | Never suggest history lines matching the pattern |
+| `ghost unignore '*pattern*'` | Remove a pattern |
+| `ghost ignore --clear` / `--reset` | Remove all patterns / restore the defaults |
 
 These commands apply to the current session. To keep a colour, add `ghost color ...` to `~/.bashrc` after the line the installer added.
 
 Suggestions come from the history loaded in the session, so their range is set by `HISTSIZE` and `HISTFILESIZE`. They only appear when the cursor is at the end of the line, and not during reverse search, tab completion, multi-line (`PS2`) input or `read -e`.
+
+## Hiding secrets
+
+If you once typed a password or token on the command line, you don't want it popping up on screen again. History lines that match an ignore pattern are never suggested; the newest safe match is shown instead.
+
+These patterns are on by default (case-insensitive):
+
+```
+*password*  *passwd*  *secret*  *token*  *api_key*  *apikey*
+*authorization:*  *ghp_*  *github_pat_*
+```
+
+Add your own with `ghost ignore`. **Quote the pattern**, or Bash may expand `*` to file names first:
+
+```sh
+ghost ignore '*mysql -p*' '*aws_secret*'
+```
+
+`*` matches anything and `?` matches one character. Like the other commands, this lasts for the current session, so put it in `~/.bashrc` after the installer's line to keep it.
+
+This only hides suggestions. The commands are still in `~/.bash_history`. To keep a command out of history entirely, set `HISTCONTROL=ignorespace` and start the command with a space.
 
 ## Compatibility
 
