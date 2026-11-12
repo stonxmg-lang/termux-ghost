@@ -27,7 +27,7 @@ PS1='\$ '
 HISTFILE=$W/hist
 HISTSIZE=${HISTN:-1000}
 cd $W
-enable -f $ROOT/ghost.so ghost
+enable -f ${GHOST_SO:-$ROOT/ghost.so} ghost
 RC
 
 start() { # cols rows
