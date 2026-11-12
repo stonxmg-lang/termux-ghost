@@ -37,6 +37,9 @@ start() { # cols rows
   tm set -g status off
   tm set -g escape-time 0
   settle
+  # Startup messages (a motd, or Termux's first-run setup) would shift rows.
+  tm send-keys -t t C-l
+  settle
 }
 settle() { local a b; for _ in 1 2 3 4 5 6 7 8 9 10; do b=$(tm capture-pane -p -e -t t; tm display -p -t t '#{cursor_x},#{cursor_y}'); [[ $a == "$b" && -n $a ]] && return; a=$b; "$T/bin/sleep" 0.08; done; }
 keys() { tm send-keys -t t "$@"; settle; }
